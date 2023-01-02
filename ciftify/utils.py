@@ -211,14 +211,14 @@ class WorkDirSettings:
         # set in main module is respected
         logger = logging.getLogger(__name__)
         if user_dir:
-            return os.path.realpath(user_dir)
+            return os.path.abspath(user_dir)
         if subject == 'HCP_S1200_GroupAvg':
             return None
         found_dir = ciftify.config.find_work_dir()
         if found_dir is None:
             logger.error("Cannot find working directory, exiting.")
             sys.exit(1)
-        return os.path.realpath(found_dir)
+        return os.path.abspath(found_dir)
 
 def get_registration_mode(arguments):
     """

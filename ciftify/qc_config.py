@@ -257,7 +257,7 @@ def replace_path_references(template_contents, template_prefix, path, scene_file
     ''' replace refence to a file in a template scene_file in three ways
     absolute path, relative path and basename
     '''
-    path = os.path.realpath(path)
+    path = os.path.abspath(path)
     txt = template_contents.replace('{}_ABSPATH'.format(template_prefix),
                                     path)
     txt = txt.replace('{}_RELPATH'.format(template_prefix),

@@ -8,4 +8,5 @@ tests/functional/.ipynb_checkpoints/
 dist/
 build/
 ciftify.egg-info/
+*.DS_Store
 

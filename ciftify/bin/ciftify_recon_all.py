@@ -29,6 +29,7 @@ Options:
                               MSMSulc mode. By default, the configuration file
                               is ciftify/data/hcp_config/MSMSulcStrainFinalconf
                               This setting is ignored when not running MSMSulc mode.
+  --T2                        Include T2 files from freesurfer outputs
   --ciftify-conf YAML         EXPERT OPTION. Path to a yaml configuration file. Overrides
                               the default settings in
                               ciftify/data/ciftify_workflow_settings.yaml
@@ -406,13 +407,12 @@ class Settings(WorkFlowSettings):
 
     def __get_T2(self, arguments, subject):
         '''turning this option off as HCPPipelines is recommended in this case'''
-        return None
-        # if not arguments['--T2']:
-        #     return None
-        # raw_T2 = os.path.join(subject.fs_folder, 'mri/orig/T2raw.mgz')
-        # if not os.path.exists(raw_T2):
-        #     return None
-        # return raw_T2
+        if not arguments['--T2']:
+            return None
+        raw_T2 = os.path.join(subject.fs_folder, 'mri/T2.norm.mgz')
+        if not os.path.exists(raw_T2):
+            return None
+        return raw_T2
 
 class Subject:
     def __init__(self, work_dir, fs_root_dir, subject_id, resample_to_T1w32k):
@@ -679,9 +679,10 @@ def run_T1_FNIRT_registration(reg_settings, temp_dir):
 
         ## calculate the just the warp for the surface transform - need it because
         ## sometimes the brain is outside the bounding box of warfield
-        run(['fnirt','--in={}'.format(T1w2_standard_linear),
+        run(['fnirt','--in={}'.format(os.path.join(src_dir, T1wImage)),
              '--ref={}'.format(standard_T1wImage),
              '--refmask={}'.format(standard_BrainMask),
+             '--aff={}'.format(os.path.join(xfms_dir, AtlasTransform_Linear)),
              '--fout={}'.format(os.path.join(xfms_dir, AtlasTransform_NonLinear)),
              '--logout={}'.format(os.path.join(xfms_dir, 'NonlinearReg_fromlinear.log')),
              '--config={}'.format(FNIRTConfig)], dryrun=DRYRUN)
@@ -689,12 +690,11 @@ def run_T1_FNIRT_registration(reg_settings, temp_dir):
     ## transforms
     run(['invwarp', '-w', os.path.join(xfms_dir, AtlasTransform_NonLinear),
          '-o', os.path.join(xfms_dir,InverseAtlasTransform_NonLinear),
-         '-r', standard_T1wImage], dryrun=DRYRUN)
+         '-r', os.path.join(src_dir, T1wImage)], dryrun=DRYRUN)
     ##T1w set of warped outputs (brain/whole-head + restored/orig)
     run(['applywarp', '--rel', '--interp=trilinear',
          '-i', os.path.join(src_dir, T1wImage),
          '-r', standard_T1wImage, '-w', os.path.join(xfms_dir, AtlasTransform_NonLinear),
-         '--premat={}'.format(os.path.join(xfms_dir,AtlasTransform_Linear)),
          '-o', os.path.join(dest_dir, T1wImage)], dryrun=DRYRUN)
 
 def apply_nonlinear_warp_to_nifti_rois(image, reg_settings, hcp_templates,
@@ -715,8 +715,6 @@ def apply_nonlinear_warp_to_nifti_rois(image, reg_settings, hcp_templates,
                     reg_settings['T1wImage']),
              '-w', os.path.join(reg_settings['xfms_dir'],
                     reg_settings['AtlasTransform_NonLinear']),
-             '--premat={}'.format(os.path.join(reg_settings['xfms_dir'],
-                    reg_settings['AtlasTransform_Linear'])),
              '-o', image_dest], dryrun=DRYRUN)
         if import_labels:
             run(['wb_command', '-volume-label-import', '-logging', 'SEVERE',
@@ -727,8 +725,8 @@ def add_anat_images_to_spec_files(meshes, subject_id, img_type='T1wImage'):
     '''add all the T1wImages to their associated spec_files'''
     for mesh in meshes.values():
          run(['wb_command', '-add-to-spec-file',
-              os.path.realpath(spec_file(subject_id, mesh)),
-              'INVALID', os.path.realpath(mesh[img_type])], dryrun=DRYRUN)
+              os.path.abspath(spec_file(subject_id, mesh)),
+              'INVALID', os.path.abspath(mesh[img_type])], dryrun=DRYRUN)
 
 ## Step 1.5 Create Subcortical ROIs  ###########################
 
@@ -879,11 +877,7 @@ def apply_nonlinear_warp_to_surface(subject_id, surface, reg_settings, meshes):
         surf_dest = surf_file(subject_id, surface, hemisphere, dest_mesh_settings)
 
         ## MNI transform the surfaces into the MNINonLinear/Native Folder
-        run(['wb_command', '-surface-apply-affine', surf_src,
-            os.path.join(xfms_dir, reg_settings['AtlasTransform_Linear']),
-            surf_dest, '-flirt', src_mesh_settings['T1wImage'],
-            reg_settings['standard_T1wImage']])
-        run(['wb_command', '-surface-apply-warpfield', surf_dest,
+        run(['wb_command', '-surface-apply-warpfield', surf_src,
             os.path.join(xfms_dir, reg_settings['InverseAtlasTransform_NonLinear']),
             surf_dest, '-fnirt', os.path.join(xfms_dir,
             reg_settings['AtlasTransform_NonLinear'])])
@@ -1070,20 +1064,20 @@ def add_dense_maps_to_spec_file(subject_id, mesh_settings,
 
     for dscalar in dscalar_types:
         run(['wb_command', '-add-to-spec-file',
-            os.path.realpath(spec_file(subject_id, mesh_settings)), 'INVALID',
-            os.path.realpath(os.path.join(maps_folder,
+            os.path.abspath(spec_file(subject_id, mesh_settings)), 'INVALID',
+            os.path.abspath(os.path.join(maps_folder,
                     '{}.{}.{}.dscalar.nii'.format(subject_id, dscalar,
                     mesh_settings['meshname'])))], dryrun=DRYRUN)
 
     for label_name in expected_labels:
         file_name = "{}.{}.{}.dlabel.nii".format(subject_id, label_name,
                 mesh_settings['meshname'])
-        dlabel_file = os.path.realpath(os.path.join(maps_folder, file_name))
+        dlabel_file = os.path.abspath(os.path.join(maps_folder, file_name))
         if not os.path.exists(dlabel_file):
             logger.debug("dlabel file {} does not exist, skipping".format(
                     dlabel_file))
             continue
-        run(['wb_command', '-add-to-spec-file', os.path.realpath(spec_file(
+        run(['wb_command', '-add-to-spec-file', os.path.abspath(spec_file(
                 subject_id, mesh_settings)), 'INVALID', dlabel_file],
                 dryrun=DRYRUN)
 
@@ -1552,9 +1546,9 @@ def main():
     logger.addHandler(fh)
 
     # 2018-04 commenting out T2 settings as T2 output from freesurfer are much poorer than HCPPipelines
-    # if arguments['--T2'] and not settings.use_T2:
-    #     logger.error("Cannot locate T2 for {} in freesurfer "
-    #             "outputs".format(settings.subject.id))
+    if arguments['--T2'] and not settings.use_T2:
+        logger.error("Cannot locate T2 for {} in freesurfer "
+                "outputs".format(settings.subject.id))
 
     N_CPUS = settings.n_cpus
     FS_LICENSE = settings.fs_license
