@@ -709,13 +709,22 @@ def apply_nonlinear_warp_to_nifti_rois(image, reg_settings, hcp_templates,
     if os.path.isfile(image_src):
         image_dest = os.path.join(reg_settings['dest_dir'],
                 '{}.nii.gz'.format(image))
-        run(['applywarp', '--rel', '--interp=nn',
-             '-i', image_src,
-             '-r', os.path.join(reg_settings['dest_dir'],
-                    reg_settings['T1wImage']),
-             '-w', os.path.join(reg_settings['xfms_dir'],
-                    reg_settings['AtlasTransform_NonLinear']),
-             '-o', image_dest], dryrun=DRYRUN)
+        if image == 'T2w':
+            run(['applywarp', '--rel', '--interp=trilinear',
+                 '-i', image_src,
+                 '-r', os.path.join(reg_settings['dest_dir'],
+                        reg_settings['T1wImage']),
+                 '-w', os.path.join(reg_settings['xfms_dir'],
+                        reg_settings['AtlasTransform_NonLinear']),
+                 '-o', image_dest], dryrun=DRYRUN)
+        else:
+            run(['applywarp', '--rel', '--interp=nn',
+                 '-i', image_src,
+                 '-r', os.path.join(reg_settings['dest_dir'],
+                        reg_settings['T1wImage']),
+                 '-w', os.path.join(reg_settings['xfms_dir'],
+                        reg_settings['AtlasTransform_NonLinear']),
+                 '-o', image_dest], dryrun=DRYRUN)
         if import_labels:
             run(['wb_command', '-volume-label-import', '-logging', 'SEVERE',
                     image_dest, fs_labels, image_dest, '-drop-unused-labels'],
