@@ -559,7 +559,7 @@ def convert_freesurfer_T1(fs_folder, T1w_nii):
     if not os.path.exists(fs_T1):
         logger.error("Cannot find freesurfer T1 {}, exiting".format(fs_T1))
         sys.exit(1)
-    run(['mri_convert', fs_T1, T1w_nii], dryrun=DRYRUN)
+    run(['mri_convert', '-odt', 'float', fs_T1, T1w_nii], dryrun=DRYRUN)
     run(['fslreorient2std', T1w_nii, T1w_nii], dryrun=DRYRUN)
 
 def convert_freesurfer_mgz(image_name,  T1w_nii, hcp_templates,
@@ -676,6 +676,7 @@ def run_T1_FNIRT_registration(reg_settings, temp_dir):
             '-in', os.path.join(src_dir, T1wBrain), '-ref', standard_T1wBrain,
             '-omat', os.path.join(xfms_dir, AtlasTransform_Linear),
             '-o', T1w2_standard_linear], dryrun=DRYRUN)
+        run(['fslmaths', T1w2_standard_linear, '-max', '0', T1w2_standard_linear])
 
         ## calculate the just the warp for the surface transform - need it because
         ## sometimes the brain is outside the bounding box of warfield
@@ -692,10 +693,11 @@ def run_T1_FNIRT_registration(reg_settings, temp_dir):
          '-o', os.path.join(xfms_dir,InverseAtlasTransform_NonLinear),
          '-r', os.path.join(src_dir, T1wImage)], dryrun=DRYRUN)
     ##T1w set of warped outputs (brain/whole-head + restored/orig)
-    run(['applywarp', '--rel', '--interp=trilinear',
+    run(['applywarp', '--rel', '--interp=spline',
          '-i', os.path.join(src_dir, T1wImage),
          '-r', standard_T1wImage, '-w', os.path.join(xfms_dir, AtlasTransform_NonLinear),
          '-o', os.path.join(dest_dir, T1wImage)], dryrun=DRYRUN)
+    run(['fslmaths', os.path.join(dest_dir, T1wImage), '-max', '0', os.path.join(dest_dir, T1wImage)])
 
 def apply_nonlinear_warp_to_nifti_rois(image, reg_settings, hcp_templates,
                                        import_labels=True):
@@ -710,13 +712,14 @@ def apply_nonlinear_warp_to_nifti_rois(image, reg_settings, hcp_templates,
         image_dest = os.path.join(reg_settings['dest_dir'],
                 '{}.nii.gz'.format(image))
         if image == 'T2w':
-            run(['applywarp', '--rel', '--interp=trilinear',
+            run(['applywarp', '--rel', '--interp=spline',
                  '-i', image_src,
                  '-r', os.path.join(reg_settings['dest_dir'],
                         reg_settings['T1wImage']),
                  '-w', os.path.join(reg_settings['xfms_dir'],
                         reg_settings['AtlasTransform_NonLinear']),
                  '-o', image_dest], dryrun=DRYRUN)
+            run(['fslmaths', image_dest, '-max', '0', image_dest])
         else:
             run(['applywarp', '--rel', '--interp=nn',
                  '-i', image_src,
