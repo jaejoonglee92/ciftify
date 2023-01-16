@@ -518,7 +518,7 @@ def copy_atlas_images(settings):
 
     elif settings.func_ref.mode == "path":
         '''use the file indicated by the user..after checking the dimension'''
-        cifify.meants.verify_nifti_dimensions_match(settings.ref_vol.path,
+        ciftify.meants.verify_nifti_dimensions_match(settings.func_ref.path,
                                                     settings.func_4D)
         atlas_fMRI_3D = settings.func_ref.path
     else:
