@@ -498,21 +498,20 @@ def copy_atlas_images(settings):
     For the 4D nifti input --> just copy
     For the 3D nifti input --> ensure it matches the spacing of the fMRI and copy
     '''
-    logger.info(section_header("Copying MNI space input fMRI"))
-    atlas_fMRI_4D = os.path.join(settings.results_dir,
-                                '{}.nii.gz'.format(settings.fmri_label))
-    atlas_fMRI_3D = os.path.join(settings.diagnostics.path,
-                                'func_reference.nii.gz')
-
-    run(['cp', settings.func_4D, atlas_fMRI_4D])
+    logger.info(section_header("MNI space input fMRI"))
+    atlas_fMRI_4D = settings.func_4D
 
     if settings.func_ref.mode == "first_vol":
         '''take the fist image (default)'''
+        atlas_fMRI_3D = os.path.join(settings.diagnostics.path,
+                                    'func_reference.nii.gz')
         run(['wb_command', '-volume-math "(x)"', atlas_fMRI_3D,
                         '-var','x', settings.func_4D, '-subvolume', '1'])
 
     elif settings.func_ref.mode == "median":
         '''take the median over time, if indicated'''
+        atlas_fMRI_3D = os.path.join(settings.diagnostics.path,
+                                    'func_reference.nii.gz')
         run(['wb_command', '-volume-reduce',
             settings.func_4D, 'MEDIAN', atlas_fMRI_3D])
 
