@@ -23,6 +23,7 @@ Options:
   -v, --verbose            Verbose logging
   --debug                  Debug logging
   --help                   Print help
+  --meanfunc MF            Mean functional image for QC template
 
 DETAILS
 Produces visualizations for quality assurance of volume to cortex mapping step
@@ -75,6 +76,7 @@ class UserSettings(VisSettings):
         self.dtseries_s0 = self.get_dtseries_s0()
         self.fwhm = self.get_fwhm(arguments)
         self.surf_mesh = '.32k_fs_LR'
+        self.meanfunc = arguments['--meanfunc']
 
     def get_dtseries_s0(self):
         dtseries_s0 = ''
@@ -219,8 +221,7 @@ def change_sbref_palette(user_settings, temp_dir):
             'MNINonLinear', 'Results', user_settings.fmri_name,
             '{}.nii.gz'.format(user_settings.fmri_name))
 
-    run(['wb_command', '-volume-reduce',
-        func4D_nii, 'MEAN', sbref_nii])
+    run(['cp', user_settings.meanfunc, sbref_nii])
 
     run(['wb_command', '-volume-palette',
         sbref_nii,
